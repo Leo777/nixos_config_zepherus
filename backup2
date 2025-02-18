@@ -8,22 +8,18 @@
   imports =
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
-      ./default.nix
     ];
   nixpkgs.config.allowUnfree = true;
   nixpkgs.config.nvidia.acceptLicense = true;
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
-  #boot.kernelParams = [ "pcie_aspm.policy=powersupersave" "acpi.prefer_microsoft_dsm_guid=1" ];
-  boot.kernelPackages = pkgs.linuxPackages_6_12;
-  #boot.initrd.kernelModules = ["amdgpu"];
+  boot.kernelPackages = pkgs.linuxPackages_6_11;
+  boot.initrd.kernelModules = [ "amdgpu" ];
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   networking.hostName = "nixos"; # Define your hostname.
   # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
-  fonts = {
-    packages = builtins.filter lib.attrsets.isDerivation (builtins.attrValues pkgs.nerd-fonts);
-  };
+
   # Configure network proxy if necessary
   # networking.proxy.default = "http://user:password@proxy:port/";
   # networking.proxy.noProxy = "127.0.0.1,localhost,internal.domain";
@@ -52,17 +48,10 @@
    # Enable the X11 windowing system.
   # You can disable this if you're only using the Wayland session.
   services.xserver.enable = true;
-  #services.xserver.videoDrivers = ["amdgpu"];
-  #services.xserver.displayManager.lightdm.enable = true;
+
   # Enable the KDE Plasma Desktop Environment.
   services.displayManager.sddm.enable = true;
-  services.displayManager.sddm.wayland.enable = true;
-  services.desktopManager.plasma6.enableQt5Integration = true;
   services.desktopManager.plasma6.enable = true;
- #services.xserver.displayManager.gdm.enable = true;
- #services.xserver.desktopManager.gnome.enable = true; 
-
-
   # Configure keymap in X11
   services.xserver.xkb = {
     layout = "us";
@@ -80,11 +69,49 @@
 
 BrowseProtocols all
     '';
- services.avahi = {
-   enable = true;
-   nssmdns4 = true;
+services.avahi = {
+  enable = true;
+  nssmdns4 = true;
+};
+  services.xserver.videoDrivers = ["amdgpu"];
+
+   specialisation = {
+    gaming-time.configuration = {
+
+      hardware.nvidia.open = true;
+      #NVIDIA
+     hardware.graphics = {
+      enable = true;
+      enable32Bit = true;
+     };
+
+   services.xserver.videoDrivers = ["nvidia"];
+
+  #hardware.nvidia.modesetting.enable = true;
+    hardware.nvidia = {
+    modesetting.enable = true;
+    #powerManagement.enable = true;
+      # Fine-grained power management. Turns off GPU when not in use.
+      # Experimental and only works on modern Nvidia GPUs (Turing or newer).
+    #powerManagement.finegrained = true;
+
+
+   prime = {
+    sync.enable = true;
+  # offload = {
+   #  enable = true;
+    # enableOffloadCmd = true;
+#};
+    amdgpuBusId = "PCI:65:0:0";
+
+    # dedicated
+    nvidiaBusId = "PCI:1:0:0";
+    };
+   };
   };
-      # Enable Bluetooth
+};
+
+    # Enable Bluetooth
   hardware.bluetooth.enable = true; # enables support for Bluetooth
   hardware.bluetooth.powerOnBoot = true; # powers up the default Bluetooth controller on boot
   #services.blueman.enable = true;
@@ -113,7 +140,6 @@ BrowseProtocols all
     isNormalUser = true;
     description = "zen";
     extraGroups = [ "networkmanager" "wheel" ];
-    home = "/home/zen";
     packages = with pkgs; [
       kdePackages.kate
     #  thunderbird
@@ -130,16 +156,12 @@ BrowseProtocols all
     neovim
     git
     gcc
-    gnumake
-    binutils
-    gnutar
-    lazygit
     wget
     neofetch
     brightnessctl
+    nerdfonts
     telegram-desktop
     kitty
-    koodo-reader
     python311
     kdePackages.krohnkite
     wl-clipboard
@@ -156,36 +178,10 @@ BrowseProtocols all
     hplip
     brave
     vlc
-    yazi
-    ffmpeg_6-full
-    libvdpau
-    libva
-    lmstudio
-    x264
-    x265
-
   ];
-
-  nixpkgs.overlays = [
-    (self: super: {
-      lmstudio = import /home/zen/packages/lmstudio/default.nix { pkgs = super; };
-    })
-  ];
-
-
-
   programs.zsh.enable = true;
   users.defaultUserShell = pkgs.zsh;
   programs.direnv.enable = true;
-
-
-  programs.ssh = {
-    startAgent = true;
-    # Optional: add your keys to automatically load them
-    extraConfig = ''
-      AddKeysToAgent yes
-    '';
-  };
 
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
@@ -199,7 +195,7 @@ BrowseProtocols all
 
   # Enable the OpenSSH daemon.
   # services.openssh.enable = true;
-  services.asusd.enable = true;
+
   # Open ports in the firewall.
   # networking.firewall.allowedTCPPorts = [ ... ];
   # networking.firewall.allowedUDPPorts = [ ... ];

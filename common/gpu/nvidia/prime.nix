@@ -13,18 +13,28 @@ let
 in {
   imports = [ ./. ];
 
-  #environment.systemPackages = [ nvidia-offload ];
-  #boot.kernelParams = [ "nvidia-drm.modeset=1" ];
+  environment.systemPackages = [ nvidia-offload ];
+  boot.kernelParams = [ "nvidia-drm.modeset=1" ];
+
+  hardware.opengl = {
+    enable = true;
+    driSupport32Bit = true;
+    extraPackages = with pkgs; [
+      vaapiVdpau
+      libvdpau-va-gl
+      nvidia-vaapi-driver
+    ];
+  };
 
   hardware.nvidia = {
   package = config.boot.kernelPackages.nvidiaPackages.beta;
 
   open = true;
 
-  # Additional recommended settings
+   # Additional recommended settings
   modesetting.enable = true;
   powerManagement.enable = true;
-
+  powerManagement.finegrained = true;
   prime = {
     offload.enable = lib.mkForce true;
     #sync.enable = lib.mkForce true;

@@ -1,0 +1,104 @@
+{ config, pkgs, lib, ... }:
+
+{
+  imports =
+    [ # Include the results of the hardware scan.
+      ./hardware-configuration.nix
+    ];
+
+  nixpkgs.config.allowUnfree = true;
+  nixpkgs.config.nvidia.acceptLicense = true;
+
+  # Bootloader
+  boot.loader.systemd-boot.enable = true;
+  boot.loader.efi.canTouchEfiVariables = true;
+  boot.kernelPackages = pkgs.linuxPackages_6_11;
+
+  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+
+  # Networking
+  networking.networkmanager.enable = true;
+
+  # Locale and Timezone
+  time.timeZone = "Europe/Warsaw";
+  i18n.defaultLocale = "en_US.UTF-8";
+
+  # X11 and KDE Plasma
+  services.xserver.enable = true;
+  services.displayManager.sddm.enable = true;
+  services.desktopManager.plasma6.enable = true;
+
+  # Enable video drivers
+  services.xserver.videoDrivers = ["amdgpu"];
+
+  # GPU Specialisations
+  specialisation = {
+    # AMD GPU Configuration
+    amd.configuration = {
+      hardware.amd.enable = true;
+      boot.initrd.kernelModules = [ "amdgpu" ];
+      services.xserver.videoDrivers = [ "amdgpu" ];
+    };
+
+    # NVIDIA GPU Configuration
+    nvidia.configuration = {
+      hardware.nvidia = {
+        open = true; # Use open-source NVIDIA drivers
+        enable = true;
+        enable32Bit = true;
+        modesetting.enable = true;
+        prime = {
+          sync.enable = true;
+          amdgpuBusId = "PCI:65:0:0";
+          nvidiaBusId = "PCI:1:0:0";
+        };
+      };
+      services.xserver.videoDrivers = [ "nvidia" ];
+    };
+  };
+
+  # System Packages
+  environment.systemPackages = with pkgs; [
+    vim
+    git
+    gcc
+    wget
+    neofetch
+    brightnessctl
+    nerdfonts
+    telegram-desktop
+    kitty
+    python311
+  ];
+
+  # Pipewire for Sound
+  services.pipewire = {
+    enable = true;
+    alsa.enable = true;
+    alsa.support32Bit = true;
+    pulse.enable = true;
+    jack.enable = true;
+  };
+
+  # Bluetooth
+  hardware.bluetooth = {
+    enable = true;
+    powerOnBoot = true;
+  };
+
+  # User Configuration
+  users.users.zen = {
+    isNormalUser = true;
+    extraGroups = [ "networkmanager" "wheel" ];
+    packages = with pkgs; [
+      kdePackages.kate
+    ];
+  };
+
+  # Firefox
+  programs.firefox.enable = true;
+
+  # System State Version
+  system.stateVersion = "24.11";
+}
+
