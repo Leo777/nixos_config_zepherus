@@ -16,14 +16,39 @@
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
   #boot.kernelParams = [ "pcie_aspm.policy=powersupersave" "acpi.prefer_microsoft_dsm_guid=1" ];
-  boot.kernelPackages = pkgs.linuxPackages_6_12;
+  boot.kernelPackages = pkgs.linuxPackages_6_14;
   #boot.initrd.kernelModules = ["amdgpu"];
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   networking.hostName = "nixos"; # Define your hostname.
+  networking.firewall.allowedTCPPorts = [ 8188 ];
+  nixpkgs.config.permittedInsecurePackages = [
+    "openssl-1.1.1w"
+  ];
+  nix.settings.trusted-users = [ "root" "zen" ];
   # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
   fonts = {
     packages = builtins.filter lib.attrsets.isDerivation (builtins.attrValues pkgs.nerd-fonts);
   };
+# Enable Docker
+  virtualisation.docker = {
+    enable = true;
+    enableNvidia = true; # This pulls in nvidia-container-toolkit automatically
+  };
+
+    # Configure Portainer as a Docker container
+  virtualisation.oci-containers.containers = {
+    portainer = {
+      image = "portainer/portainer-ce:latest"; # Use the latest Portainer community edition
+      autoStart = true;                        # Start automatically on boot
+      ports = [ "9000:9000" ];                 # Map host port 9000 to container port 9000
+      volumes = [
+        "/var/run/docker.sock:/var/run/docker.sock" # Allow Portainer to manage Docker
+        "portainer_data:/data"                      # Persist Portainer data
+      ];
+    };
+  };
+
+
   # Configure network proxy if necessary
   # networking.proxy.default = "http://user:password@proxy:port/";
   # networking.proxy.noProxy = "127.0.0.1,localhost,internal.domain";
@@ -62,6 +87,7 @@
  #services.xserver.displayManager.gdm.enable = true;
  #services.xserver.desktopManager.gnome.enable = true; 
 
+  services.udev.packages = [ pkgs.udevil pkgs.udisks2 ];
 
   # Configure keymap in X11
   services.xserver.xkb = {
@@ -84,12 +110,13 @@ BrowseProtocols all
    enable = true;
    nssmdns4 = true;
   };
+
       # Enable Bluetooth
   hardware.bluetooth.enable = true; # enables support for Bluetooth
   hardware.bluetooth.powerOnBoot = true; # powers up the default Bluetooth controller on boot
   #services.blueman.enable = true;
   # Enable sound with pipewire.
-  hardware.pulseaudio.enable = false;
+  services.pulseaudio.enable = false;
   #security.rtkit.enable = true;
   services.pipewire = {
     enable = true;
@@ -112,7 +139,7 @@ BrowseProtocols all
   users.users.zen = {
     isNormalUser = true;
     description = "zen";
-    extraGroups = [ "networkmanager" "wheel" ];
+    extraGroups = [ "networkmanager" "wheel" "docker" ];
     home = "/home/zen";
     packages = with pkgs; [
       kdePackages.kate
@@ -135,7 +162,10 @@ BrowseProtocols all
     gnutar
     lazygit
     wget
+    davinci-resolve-studio
+    docker
     neofetch
+    nvidia-container-toolkit
     brightnessctl
     telegram-desktop
     kitty
@@ -163,21 +193,29 @@ BrowseProtocols all
     lmstudio
     x264
     x265
-
-  ];
+    mdadm
+    kdePackages.partitionmanager
+    qbittorrent
+    asusctl
+    libreoffice-qt6-fresh
+    usbutils
+    unetbootin
+ ];
 
   nixpkgs.overlays = [
     (self: super: {
       lmstudio = import /home/zen/packages/lmstudio/default.nix { pkgs = super; };
+      davinci-resolve-studio = import /home/zen/packages/davinchi/davinci-resolve-patched.nix { pkgs = super; };
     })
   ];
 
 
 
   programs.zsh.enable = true;
+  programs.kdeconnect.enable = true;
   users.defaultUserShell = pkgs.zsh;
   programs.direnv.enable = true;
-
+  programs.nix-ld.enable = true;
 
   programs.ssh = {
     startAgent = true;

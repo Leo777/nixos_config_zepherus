@@ -16,15 +16,9 @@ in {
   environment.systemPackages = [ nvidia-offload ];
   boot.kernelParams = [ "nvidia-drm.modeset=1" ];
 
-  hardware.opengl = {
-    enable = true;
-    driSupport32Bit = true;
-    extraPackages = with pkgs; [
-      vaapiVdpau
-      libvdpau-va-gl
-      nvidia-vaapi-driver
-    ];
-  };
+
+  hardware.graphics.enable = true;
+  hardware.graphics.enable32Bit = true;
 
   hardware.nvidia = {
   package = config.boot.kernelPackages.nvidiaPackages.beta;
