@@ -15,8 +15,9 @@
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
+  hardware.enableRedistributableFirmware = true;
   #boot.kernelParams = [ "pcie_aspm.policy=powersupersave" "acpi.prefer_microsoft_dsm_guid=1" ];
-  boot.kernelPackages = pkgs.linuxPackages_6_14;
+  boot.kernelPackages = pkgs.linuxPackages_6_18;
   #boot.initrd.kernelModules = ["amdgpu"];
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   networking.hostName = "nixos"; # Define your hostname.
@@ -26,15 +27,16 @@
   ];
   nix.settings.trusted-users = [ "root" "zen" ];
   # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
-  fonts = {
-    packages = builtins.filter lib.attrsets.isDerivation (builtins.attrValues pkgs.nerd-fonts);
-  };
+  fonts.packages = with pkgs; [
+  nerd-fonts.fira-code
+  nerd-fonts.droid-sans-mono
+  nerd-fonts.jetbrains-mono
+];
 # Enable Docker
   virtualisation.docker = {
     enable = true;
-    enableNvidia = true; # This pulls in nvidia-container-toolkit automatically
   };
-
+  hardware.nvidia-container-toolkit.enable = true;
     # Configure Portainer as a Docker container
   virtualisation.oci-containers.containers = {
     portainer = {
@@ -55,7 +57,9 @@
 
   # Enable networking
   networking.networkmanager.enable = true;
-
+  networking.wireless.iwd.enable = true;
+  networking.networkmanager.wifi.backend = "iwd";
+  networking.networkmanager.wifi.powersave = false;
   # Set your time zone.
   time.timeZone = "Europe/Warsaw";
 
@@ -84,8 +88,6 @@
   services.displayManager.sddm.wayland.enable = true;
   services.desktopManager.plasma6.enableQt5Integration = true;
   services.desktopManager.plasma6.enable = true;
- #services.xserver.displayManager.gdm.enable = true;
- #services.xserver.desktopManager.gnome.enable = true; 
 
   services.udev.packages = [ pkgs.udevil pkgs.udisks2 ];
 
@@ -109,8 +111,13 @@ BrowseProtocols all
  services.avahi = {
    enable = true;
    nssmdns4 = true;
+   openFirewall = true;
   };
-
+# THIS IS THE MISSING PIECE:
+  services.printing.drivers = [ 
+    pkgs.samsung-unified-linux-driver 
+    pkgs.splix
+  ];
       # Enable Bluetooth
   hardware.bluetooth.enable = true; # enables support for Bluetooth
   hardware.bluetooth.powerOnBoot = true; # powers up the default Bluetooth controller on boot
@@ -139,7 +146,7 @@ BrowseProtocols all
   users.users.zen = {
     isNormalUser = true;
     description = "zen";
-    extraGroups = [ "networkmanager" "wheel" "docker" ];
+    extraGroups = [ "networkmanager" "wheel" "docker" "dialout" ];
     home = "/home/zen";
     packages = with pkgs; [
       kdePackages.kate
@@ -155,25 +162,32 @@ BrowseProtocols all
   environment.systemPackages = with pkgs; [
     vim
     neovim
+    gimp
+    krita
     git
     gcc
     gnumake
+    gemini-cli
+    ripgrep
     binutils
+    bazecor
     gnutar
     lazygit
     wget
-    davinci-resolve-studio
+    # davinci-resolve-studio
     docker
     neofetch
     nvidia-container-toolkit
     brightnessctl
     telegram-desktop
     kitty
-    koodo-reader
+    # koodo-reader
     python311
     kdePackages.krohnkite
+    kdePackages.kcalc
     wl-clipboard
     code-cursor
+    opencode
     realvnc-vnc-viewer
     kio-fuse
     obsidian
@@ -200,14 +214,71 @@ BrowseProtocols all
     libreoffice-qt6-fresh
     usbutils
     unetbootin
+    protonup-ng
+    mangohud
+    vulkan-tools
+    pciutils
+    protontricks
+    # goose-cli
+    # goose-desktop
+    tmux
  ];
 
-  nixpkgs.overlays = [
-    (self: super: {
-      lmstudio = import /home/zen/packages/lmstudio/default.nix { pkgs = super; };
-      davinci-resolve-studio = import /home/zen/packages/davinchi/davinci-resolve-patched.nix { pkgs = super; };
-    })
-  ];
+  # nixpkgs.overlays = [
+    # (self: super: {
+      # lmstudio = import /home/zen/packages/lmstudio/default.nix { pkgs = super; };
+      # davinci-resolve-studio = import /home/zen/packages/davinchi/davinci-resolve-patched.nix { pkgs = super; };
+      # Add this line:
+      # goose-cli = (builtins.getFlake "/home/zen/projects/goose").defaultPackage.${self.system};
+ #      # NEW: The Desktop App overlay
+ # goose-desktop = let
+ #        srcPath = "/home/zen/projects/goose/ui/desktop/out/Goose-linux-x64";
+ #        libPath = super.lib.makeLibraryPath (with super; [
+ #          glib
+ #          nss
+ #          nspr
+ #          atk
+ #          at-spi2-atk    # Make sure this uses hyphens, not underscores
+ #          dbus
+ #          gdk-pixbuf
+ #          gtk3
+ #          pango
+ #          cairo
+ #          xorg.libX11
+ #          xorg.libXcomposite
+ #          xorg.libXdamage
+ #          xorg.libXext
+ #          xorg.libXfixes
+ #          xorg.libXrandr
+ #          xorg.libxcb
+ #          alsa-lib
+ #          cups
+ #          expat
+ #          mesa
+ #        ]);
+ #      in super.runCommand "goose-desktop" { } ''
+ #        mkdir -p $out/bin $out/share/applications
+ #
+ #        # Wrapper script
+ #        cat > $out/bin/goose-desktop <<EOF
+ #        #!/bin/sh
+ #        export LD_LIBRARY_PATH=${libPath}:\$LD_LIBRARY_PATH
+ #        exec ${super.stdenv.cc.bintools.dynamicLinker} ${srcPath}/Goose "\$@"
+ #        EOF
+ #
+ #        chmod +x $out/bin/goose-desktop
+ #
+ #        # Desktop Entry
+ #        cat > $out/share/applications/goose.desktop <<EOF
+ #        [Desktop Entry]
+ #        Name=Goose
+ #        Exec=$out/bin/goose-desktop --no-sandbox
+ #        Icon=${srcPath}/resources/app/src/images/icon.png
+ #        Type=Application
+ #        Categories=Development;
+ #        EOF
+ #      '';    })
+  # ];
 
 
 
@@ -216,8 +287,22 @@ BrowseProtocols all
   users.defaultUserShell = pkgs.zsh;
   programs.direnv.enable = true;
   programs.nix-ld.enable = true;
+  programs.steam = {
+  enable = true;
+  remotePlay.openFirewall = true;  # Optional: For Steam Remote Play
+  dedicatedServer.openFirewall = true;  # Optional: For dedicated servers
+};
+  programs.steam.package = pkgs.steam.override { extraLibraries = pkgs: [ pkgs.xorg.libX11 ]; };
+  programs.steam.extraCompatPackages = with pkgs; [ proton-ge-bin ];
+  programs.gamescope.enable = true;
+  programs.gamemode.enable = true;
+  
+  environment.sessionVariables = {
+    STEAM_EXTRA_COMPAT_TOOLS_PATHS =
+      "\${HOME}/.steam/root/compatibilitytools.d";
+  };
 
-  programs.ssh = {
+ programs.ssh = {
     startAgent = true;
     # Optional: add your keys to automatically load them
     extraConfig = ''
@@ -243,7 +328,10 @@ BrowseProtocols all
   # networking.firewall.allowedUDPPorts = [ ... ];
   # Or disable the firewall altogether.
   # networking.firewall.enable = false;
-
+services.udev.extraRules = ''
+# Dygma Defy keyboard
+SUBSYSTEM=="tty", ATTRS{idVendor}=="35ef", ATTRS{idProduct}=="0012", MODE="0666", GROUP="dialout"
+''; 
   # This value determines the NixOS release from which the default
   # settings for stateful data, like file locations and database versions
   # on your system were taken. It‘s perfectly fine and recommended to leave
@@ -251,5 +339,4 @@ BrowseProtocols all
   # Before changing this value read the documentation for this option
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
   system.stateVersion = "24.11"; # Did you read the comment?
-
 }
