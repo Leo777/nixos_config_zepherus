@@ -2,7 +2,6 @@
 
 {
   imports = [
-    ./common/cpu/amd
     ./common/gpu/nvidia/prime.nix
     #./common/gpu/amd
     #../../../common/pc/laptop

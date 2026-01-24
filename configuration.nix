@@ -16,9 +16,23 @@
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
   hardware.enableRedistributableFirmware = true;
-  #boot.kernelParams = [ "pcie_aspm.policy=powersupersave" "acpi.prefer_microsoft_dsm_guid=1" ];
-  boot.kernelPackages = pkgs.linuxPackages_6_18;
-  #boot.initrd.kernelModules = ["amdgpu"];
+  boot.kernelPackages = pkgs.linuxPackages_zen;
+  boot.kernel.sysctl."vm.max_map_count" = 2147483642;
+  boot.initrd.kernelModules = ["amdgpu" "nvidia" "nvidia-drm" "nvidia-modeset"];
+  services.power-profiles-daemon.enable = true;
+  services.acpid.enable = true;
+  boot.kernelParams = ["nvidia-drm.modeset=1" "mem_sleep_default=deep" "amdgpu.dcdebugmask=0x10"];
+  services.fwupd.enable = true;
+  boot.extraModulePackages = [config.boot.kernelPackages.nvidia_x11];
+  boot.blacklistedKernelModules = ["nouveau"];
+  programs.corectrl.enable = true;
+  services.upower.enable = true;
+  programs.rog-control-center.enable = true;
+  services.logind.settings.Login.KillUserProcesses = true;
+
+  hardware.amdgpu.initrd.enable = lib.mkDefault true;
+
+
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   networking.hostName = "nixos"; # Define your hostname.
   networking.firewall.allowedTCPPorts = [ 8188 ];
@@ -81,6 +95,7 @@
    # Enable the X11 windowing system.
   # You can disable this if you're only using the Wayland session.
   services.xserver.enable = true;
+  services.xserver.videoDrivers = ["nvidia" "amdgpu"];
   #services.xserver.videoDrivers = ["amdgpu"];
   #services.xserver.displayManager.lightdm.enable = true;
   # Enable the KDE Plasma Desktop Environment.
@@ -89,7 +104,7 @@
   services.desktopManager.plasma6.enableQt5Integration = true;
   services.desktopManager.plasma6.enable = true;
 
-  services.udev.packages = [ pkgs.udevil pkgs.udisks2 ];
+  services.udev.packages = [ pkgs.udevil pkgs.udisks2];
 
   # Configure keymap in X11
   services.xserver.xkb = {
@@ -161,6 +176,7 @@ BrowseProtocols all
   # $ nix search wget
   environment.systemPackages = with pkgs; [
     vim
+    antigravity
     neovim
     gimp
     krita
@@ -300,6 +316,10 @@ BrowseProtocols all
   environment.sessionVariables = {
     STEAM_EXTRA_COMPAT_TOOLS_PATHS =
       "\${HOME}/.steam/root/compatibilitytools.d";
+  NIXOS_OZONE_WL = "1"; 
+  
+  # Helps with mouse cursor lag on some setups
+  KWIN_DRM_NO_AMS = "1";
   };
 
  programs.ssh = {
@@ -322,7 +342,23 @@ BrowseProtocols all
 
   # Enable the OpenSSH daemon.
   # services.openssh.enable = true;
-  services.asusd.enable = true;
+  services.asusd = {
+    enable = true;
+    enableUserService = true;
+  };
+  
+  systemd.services.supergfxd.path = [pkgs.kmod pkgs.pciutils];
+  services.supergfxd = {
+    enable = true;
+    settings = {
+      vfio_enable = true;
+      vfio_save = false;
+      always_reboot = false;
+      no_logind = false;
+      logout_timeout_s = 20;
+      hotplug_type = "Asus";
+    };
+  };
   # Open ports in the firewall.
   # networking.firewall.allowedTCPPorts = [ ... ];
   # networking.firewall.allowedUDPPorts = [ ... ];

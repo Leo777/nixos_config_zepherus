@@ -12,73 +12,42 @@ let
   '';
 in {
 
-  environment.systemPackages = [
+environment.systemPackages = [
     nvidia-offload
-    pkgs.asusctl  # For ROG controls (fans, power profiles, GPU modes)
   ];
 
-  boot.kernelParams = [ "nvidia-drm.modeset=1" ];
-
-  hardware.graphics.enable = true;
-  hardware.graphics.enable32Bit = true;
-
-  hardware.nvidia = {
+hardware.nvidia = {
     package = config.boot.kernelPackages.nvidiaPackages.stable;
     open = false;
     modesetting.enable = true;
+    nvidiaPersistenced = true;
+    forceFullCompositionPipeline = false;
+    powerManagement = {
+      enable = true;
+      finegrained = false;
+    };
     nvidiaSettings = true;
-    nvidiaPersistenced = false;
-    powerManagement.enable = true;
-    powerManagement.finegrained = false;  # Enabled for better efficiency in offload mode
     prime = {
       offload = {
-        enable = true;  # Default: Offload for battery optimization
-        enableOffloadCmd = true;  # Enables built-in prime-run command
+        enable = true;
+        enableOffloadCmd = true;
       };
-      sync.enable = false;  # Default: Disabled for normal use
-      # Hardware bus IDs (verify with lspci | grep -E "VGA|3D")
+      sync.enable = false;
       amdgpuBusId = "PCI:65:00:0";
       nvidiaBusId = "PCI:01:00:0";
     };
   };
 
-  # Enable ASUS daemon for laptop features (fans, LEDs, power)
-  services.asusd.enable = true;
-
-  # Enable TLP for advanced power management (battery optimization)
-  services.tlp.enable = true;
-  services.power-profiles-daemon.enable = false;  # Disable to avoid conflict with TLP
-  services.tlp.settings = {
-    CPU_SCALING_GOVERNOR_ON_BAT = "powersave";  # Conservative on battery
-    CPU_SCALING_GOVERNOR_ON_AC = "performance";  # Aggressive when plugged in
+  hardware.graphics = {
+    enable = true;
+    enable32Bit = true;
+    extraPackages = with pkgs; [
+      nvidia-vaapi-driver       # Video Decode for Nvidia
+      libva-vdpau-driver
+      rocmPackages.clr
+    ];
+    extraPackages32 = with pkgs; [
+      # ROCm generally does not support 32-bit, so leave this empty
+    ];
   };
-
-  # Enable video drivers for hybrid setup
-  # services.xserver.videoDrivers = [ "modesetting" "amdgpu" "nvidia" ];
-  services.xserver.videoDrivers = [ "nvidia" ];
-
-  # Specialisations for mode switching
-  specialisation = {
-    gaming.configuration = {
-      system.nixos.label = "Gaming";  # Label for boot menu
-      hardware.nvidia = {
-        powerManagement = {
-          enable = lib.mkForce false;  # Disable to allow sync (no power down possible)
-          finegrained = lib.mkForce false;  # Disable as it requires offload
-        };
-        prime = {
-          sync.enable = lib.mkForce true;  # Force sync for performance
-          offload = {
-            enable = lib.mkForce false;  # Disable offload
-            enableOffloadCmd = lib.mkForce false;  # Disable cmd to satisfy assertion
-          };
-        };
-      };
-      # Optional: Boost CPU/GPU for gaming
-      services.tlp.settings = lib.mkOverride 1000 {
-        CPU_SCALING_GOVERNOR_ON_BAT = "performance";
-        CPU_SCALING_GOVERNOR_ON_AC = "performance";
-      };
-    };
-  };
-}
+  }
