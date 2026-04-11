@@ -18,10 +18,11 @@ environment.systemPackages = [
 
 hardware.nvidia = {
     package = config.boot.kernelPackages.nvidiaPackages.stable;
-    open = false;
+    open = true;
     modesetting.enable = true;
     nvidiaPersistenced = true;
     forceFullCompositionPipeline = false;
+    dynamicBoost.enable = false;
     powerManagement = {
       enable = true;
       finegrained = false;

@@ -16,13 +16,23 @@
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
   hardware.enableRedistributableFirmware = true;
-  boot.kernelPackages = pkgs.linuxPackages_zen;
-  boot.kernel.sysctl."vm.max_map_count" = 2147483642;
+  boot.kernelPackages = pkgs.linuxPackages_6_18;
   boot.initrd.kernelModules = ["amdgpu" "nvidia" "nvidia-drm" "nvidia-modeset"];
   services.power-profiles-daemon.enable = true;
   services.acpid.enable = true;
-  boot.kernelParams = ["nvidia-drm.modeset=1" "mem_sleep_default=deep" "amdgpu.dcdebugmask=0x10"];
+  boot.kernelParams = [
+    "nvidia-drm.modeset=1"
+    "nvidia-drm.fbdev=1"
+    "NVreg_PreserveVideoMemoryAllocations=1"
+    "nvidia.NVreg_DynamicPowerManagement=0x02"
+    "nvidia.NVreg_RegistryDwords=RMHdcpKeyglobZero=1"
+    "acpi_enforce_resources=lax"
+    "btusb.enable_autosuspend=0"
+    "mem_sleep_default=deep"
+    "amdgpu.dcdebugmask=0x10"
+  ];
   services.fwupd.enable = true;
+  services.hardware.bolt.enable = true;
   boot.extraModulePackages = [config.boot.kernelPackages.nvidia_x11];
   boot.blacklistedKernelModules = ["nouveau"];
   programs.corectrl.enable = true;
@@ -65,13 +75,8 @@
   };
 
 
-  # Configure network proxy if necessary
-  # networking.proxy.default = "http://user:password@proxy:port/";
-  # networking.proxy.noProxy = "127.0.0.1,localhost,internal.domain";
-
   # Enable networking
   networking.networkmanager.enable = true;
-  networking.wireless.iwd.enable = true;
   networking.networkmanager.wifi.backend = "iwd";
   networking.networkmanager.wifi.powersave = false;
   # Set your time zone.
@@ -96,8 +101,6 @@
   # You can disable this if you're only using the Wayland session.
   services.xserver.enable = true;
   services.xserver.videoDrivers = ["nvidia" "amdgpu"];
-  #services.xserver.videoDrivers = ["amdgpu"];
-  #services.xserver.displayManager.lightdm.enable = true;
   # Enable the KDE Plasma Desktop Environment.
   services.displayManager.sddm.enable = true;
   services.displayManager.sddm.wayland.enable = true;
@@ -136,8 +139,8 @@ BrowseProtocols all
       # Enable Bluetooth
   hardware.bluetooth.enable = true; # enables support for Bluetooth
   hardware.bluetooth.powerOnBoot = true; # powers up the default Bluetooth controller on boot
-  #services.blueman.enable = true;
-  # Enable sound with pipewire.
+ 
+ # Enable sound with pipewire.
   services.pulseaudio.enable = false;
   #security.rtkit.enable = true;
   services.pipewire = {
@@ -147,10 +150,6 @@ BrowseProtocols all
     pulse.enable = true;
     # If you want to use JACK applications, uncomment this
     jack.enable = true;
-
-    # use the example session manager (no others are packaged yet so this is enabled by default,
-    # no need to redefine it in your config for now)
-   # media-session.enable = true;
   };
 
   # Enable touchpad support (enabled default in most desktopManager).
@@ -165,7 +164,6 @@ BrowseProtocols all
     home = "/home/zen";
     packages = with pkgs; [
       kdePackages.kate
-    #  thunderbird
     ];
   };
 
@@ -178,27 +176,35 @@ BrowseProtocols all
     vim
     antigravity
     neovim
-    gimp
+    nodejs
     krita
     git
     gcc
     gnumake
     gemini-cli
+    python313
     ripgrep
     binutils
     bazecor
     gnutar
     lazygit
     wget
-    # davinci-resolve-studio
     docker
-    neofetch
+    fastfetch
     nvidia-container-toolkit
     brightnessctl
+    (writeShellScriptBin "panel-brightness" ''
+      set -euo pipefail
+      if [ "$#" -ne 1 ]; then
+        echo "Usage: panel-brightness <N%+|N%-|N%>"
+        exit 2
+      fi
+
+      exec ${brightnessctl}/bin/brightnessctl -d amdgpu_bl1 set "$1"
+    '')
     telegram-desktop
     kitty
     # koodo-reader
-    python311
     kdePackages.krohnkite
     kdePackages.kcalc
     wl-clipboard
@@ -222,6 +228,7 @@ BrowseProtocols all
     libva
     lmstudio
     x264
+    figma-linux
     x265
     mdadm
     kdePackages.partitionmanager
@@ -235,8 +242,6 @@ BrowseProtocols all
     vulkan-tools
     pciutils
     protontricks
-    # goose-cli
-    # goose-desktop
     tmux
  ];
 
@@ -246,54 +251,6 @@ BrowseProtocols all
       # davinci-resolve-studio = import /home/zen/packages/davinchi/davinci-resolve-patched.nix { pkgs = super; };
       # Add this line:
       # goose-cli = (builtins.getFlake "/home/zen/projects/goose").defaultPackage.${self.system};
- #      # NEW: The Desktop App overlay
- # goose-desktop = let
- #        srcPath = "/home/zen/projects/goose/ui/desktop/out/Goose-linux-x64";
- #        libPath = super.lib.makeLibraryPath (with super; [
- #          glib
- #          nss
- #          nspr
- #          atk
- #          at-spi2-atk    # Make sure this uses hyphens, not underscores
- #          dbus
- #          gdk-pixbuf
- #          gtk3
- #          pango
- #          cairo
- #          xorg.libX11
- #          xorg.libXcomposite
- #          xorg.libXdamage
- #          xorg.libXext
- #          xorg.libXfixes
- #          xorg.libXrandr
- #          xorg.libxcb
- #          alsa-lib
- #          cups
- #          expat
- #          mesa
- #        ]);
- #      in super.runCommand "goose-desktop" { } ''
- #        mkdir -p $out/bin $out/share/applications
- #
- #        # Wrapper script
- #        cat > $out/bin/goose-desktop <<EOF
- #        #!/bin/sh
- #        export LD_LIBRARY_PATH=${libPath}:\$LD_LIBRARY_PATH
- #        exec ${super.stdenv.cc.bintools.dynamicLinker} ${srcPath}/Goose "\$@"
- #        EOF
- #
- #        chmod +x $out/bin/goose-desktop
- #
- #        # Desktop Entry
- #        cat > $out/share/applications/goose.desktop <<EOF
- #        [Desktop Entry]
- #        Name=Goose
- #        Exec=$out/bin/goose-desktop --no-sandbox
- #        Icon=${srcPath}/resources/app/src/images/icon.png
- #        Type=Application
- #        Categories=Development;
- #        EOF
- #      '';    })
   # ];
 
 
@@ -316,10 +273,9 @@ BrowseProtocols all
   environment.sessionVariables = {
     STEAM_EXTRA_COMPAT_TOOLS_PATHS =
       "\${HOME}/.steam/root/compatibilitytools.d";
-  NIXOS_OZONE_WL = "1"; 
-  
-  # Helps with mouse cursor lag on some setups
+  NIXOS_OZONE_WL = "1";
   KWIN_DRM_NO_AMS = "1";
+  
   };
 
  programs.ssh = {
@@ -342,10 +298,6 @@ BrowseProtocols all
 
   # Enable the OpenSSH daemon.
   # services.openssh.enable = true;
-  services.asusd = {
-    enable = true;
-    enableUserService = true;
-  };
   
   systemd.services.supergfxd.path = [pkgs.kmod pkgs.pciutils];
   services.supergfxd = {
@@ -356,7 +308,7 @@ BrowseProtocols all
       always_reboot = false;
       no_logind = false;
       logout_timeout_s = 20;
-      hotplug_type = "Asus";
+      hotplug_type = "None";
     };
   };
   # Open ports in the firewall.
@@ -367,6 +319,9 @@ BrowseProtocols all
 services.udev.extraRules = ''
 # Dygma Defy keyboard
 SUBSYSTEM=="tty", ATTRS{idVendor}=="35ef", ATTRS{idProduct}=="0012", MODE="0666", GROUP="dialout"
+# Prevent NVIDIA GPU from entering D3 cold (fixes HDMI hotplug freeze)
+ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030000", ATTR{power/control}="on"
+ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030200", ATTR{power/control}="on"
 ''; 
   # This value determines the NixOS release from which the default
   # settings for stateful data, like file locations and database versions
