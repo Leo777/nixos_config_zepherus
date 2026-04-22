@@ -222,6 +222,7 @@ BrowseProtocols all
     hplip
     brave
     vlc
+    vscode
     yazi
     ffmpeg_6-full
     libvdpau
