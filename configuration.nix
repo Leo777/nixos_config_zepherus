@@ -22,12 +22,6 @@
   services.acpid.enable = true;
   boot.kernelParams = [
     "nvidia-drm.modeset=1"
-    "nvidia-drm.fbdev=1"
-    "NVreg_PreserveVideoMemoryAllocations=1"
-    "nvidia.NVreg_DynamicPowerManagement=0x02"
-    "nvidia.NVreg_RegistryDwords=RMHdcpKeyglobZero=1"
-    "acpi_enforce_resources=lax"
-    "btusb.enable_autosuspend=0"
     "mem_sleep_default=deep"
     "amdgpu.dcdebugmask=0x10"
   ];
@@ -150,6 +144,18 @@ BrowseProtocols all
     pulse.enable = true;
     # If you want to use JACK applications, uncomment this
     jack.enable = true;
+  };
+  # Supergfxd (command: supergfxctl) helps manage switching from the descrete and integrated gpus.
+  services.supergfxd = {
+    enable = true;
+    settings = {
+      vfio_enable = true;
+      vfio_save = false;
+      always_reboot = false;
+      no_logind = false;
+      logout_timeout_s = 20;
+      hotplug_type = "Asus";
+    };
   };
 
   # Enable touchpad support (enabled default in most desktopManager).
@@ -276,6 +282,8 @@ BrowseProtocols all
       "\${HOME}/.steam/root/compatibilitytools.d";
   NIXOS_OZONE_WL = "1";
   KWIN_DRM_NO_AMS = "1";
+  __GL_VRR_ALLOWED = "0";
+  NVD_BACKEND = "direct";
   
   };
 
@@ -300,18 +308,6 @@ BrowseProtocols all
   # Enable the OpenSSH daemon.
   # services.openssh.enable = true;
   
-  systemd.services.supergfxd.path = [pkgs.kmod pkgs.pciutils];
-  services.supergfxd = {
-    enable = true;
-    settings = {
-      vfio_enable = true;
-      vfio_save = false;
-      always_reboot = false;
-      no_logind = false;
-      logout_timeout_s = 20;
-      hotplug_type = "None";
-    };
-  };
   # Open ports in the firewall.
   # networking.firewall.allowedTCPPorts = [ ... ];
   # networking.firewall.allowedUDPPorts = [ ... ];
